@@ -67,19 +67,40 @@ function receivedMessage(event) {
   var messageId = message.mid;
 
   var messageText = message.text;
+  var payload = message.quick_reply;
   var messageAttachments = message.attachments;
 
-  if (messageText) {
+  if (!payload && messageText) {
     var msg = messageText.toLowerCase();
     
     if (msg.indexOf('generic')>=0) { sendGenericMessage(senderID); }
     
-    else if (msg.indexOf('send a taxi')>=0) { sendQuickReplyForLocation(senderID); }
+    else if (msg.indexOf('find')>=0) { sendQuickReplyForLocation(senderID); }
+
+    else if (msg.indexOf('cars')>=0) { sendVehicleList(senderID); }
+
+    else if (msg.indexOf('buttons')>=0) { sendButtonsList(senderID); }
+
+    else if (msg.indexOf('booked')>=0) { sendBookedVehicle(senderID); }
+
+    else if (msg.indexOf('Book now!'.toLowerCase())) {
+      sendTextMessage(senderID, "Thank you! Please wait till we find you a ride...");
+      setTimeout(function() {
+        sendTextMessage(senderID, "Done! Here are the nearest rides");
+        sendVehicleList(senderID);
+      }, 4000);
+    }
 
     else { sendTextMessage(senderID, messageText); }
     
   } else if (messageAttachments) {
-    sendTextMessage(senderID, "Message with attachment received");
+    sendTextMessage(senderID, "Set your destination");
+    sendQuickReplyForLocation(senderID);
+  } else {
+    if (payload==='BOOK_NEW') {
+      sendTextMessage(senderID, "Where should we pick you up?");
+      sendQuickReplyForLocation(senderID);
+    }
   }
 }
 
@@ -93,9 +114,27 @@ function receivedPostback(event) {
   console.log("Received postback for user %d and page %d with payload '%s' " + 
     "at %d", senderID, recipientID, payload, timeOfPostback);
 
-  sendTextMessage(senderID, "Postback called");
+  if (payload==='GET_STARTED') {
+    sendQuickReplyForGetStarted(senderID);
+  } else if (payload==='BOOK_NEW') {
+    sendTextMessage(senderID, "Where should we pick you up?");
+    sendQuickReplyForLocation(senderID);
+  } else if (payload==='LOCATIONS_ARE_SET') {
+    sendTextMessage(senderID, "Thank you! Please wait till we find you a ride...");
+    setTimeout(function() {
+      sendTextMessage(senderID, "Done! Here are the nearest rides");
+      sendVehicleList(senderID);
+    }, 4000);
+  } else if (payload==='SELECTED_RIDE') {
+    sendTextMessage(senderID, "Please wait while your ride is being booked...");
+    setTimeout(function() {
+      sendTextMessage(senderID, "Done! The ride's on its way. Here are the details");
+      sendBookedVehicle(senderID);
+    }, 4000);
+  }
 }
 
+// SNIPPET
 function sendGenericMessage(recipientId) {
   var messageData = {
     recipient: {
@@ -106,49 +145,149 @@ function sendGenericMessage(recipientId) {
         type: "template",
         payload: {
           template_type: "generic",
-          elements: [{
-            title: "rift",
-            subtitle: "Next-generation virtual reality",
-            item_url: "https://www.oculus.com/en-us/rift/",               
-            image_url: "http://loremflickr.com/300/180/movie,tv/all",
-            buttons: [{
-              type: "web_url",
-              url: "https://www.oculus.com/en-us/rift/",
-              title: "Open Web URL"
+          elements: [
+            {
+              title: "rift",
+              subtitle: "Next-generation virtual reality",
+              item_url: "https://www.oculus.com/en-us/rift/",               
+              image_url: "http://loremflickr.com/300/180/movie,tv/all",
+              buttons: [
+                {
+                  type: "web_url",
+                  url: "https://www.oculus.com/en-us/rift/",
+                  title: "Open Web URL"
+                }, 
+                {
+                  type: "postback",
+                  title: "Call Postback",
+                  payload: "Payload for first bubble",
+                }
+              ]
             }, {
-              type: "postback",
-              title: "Call Postback",
-              payload: "Payload for first bubble",
-            }],
-          }, {
-            title: "touch",
-            subtitle: "Your Hands, Now in VR",
-            item_url: "https://www.oculus.com/en-us/touch/",               
-            image_url: "http://loremflickr.com/300/180/movie,tv/all",
-            buttons: [{
-              type: "web_url",
-              url: "https://www.oculus.com/en-us/touch/",
-              title: "Open Web URL"
+              title: "touch",
+              subtitle: "Your Hands, Now in VR",
+              item_url: "https://www.oculus.com/en-us/touch/",               
+              image_url: "http://loremflickr.com/300/180/movie,tv/all",
+              buttons: [{
+                type: "web_url",
+                url: "https://www.oculus.com/en-us/touch/",
+                title: "Open Web URL"
+              }, {
+                type: "postback",
+                title: "Call Postback",
+                payload: "Payload for second bubble",
+              }]
             }, {
-              type: "postback",
-              title: "Call Postback",
-              payload: "Payload for second bubble",
-            }]
-          }, {
-            title: "rift",
-            subtitle: "Next-generation virtual reality",
-            item_url: "https://www.oculus.com/en-us/rift/",               
-            image_url: "http://loremflickr.com/300/180/movie,tv/all",
-            buttons: [{
-              type: "web_url",
-              url: "https://www.oculus.com/en-us/rift/",
-              title: "Open Web URL"
+              title: "rift",
+              subtitle: "Next-generation virtual reality",
+              item_url: "https://www.oculus.com/en-us/rift/",               
+              image_url: "http://loremflickr.com/300/180/movie,tv/all",
+              buttons: [{
+                type: "web_url",
+                url: "https://www.oculus.com/en-us/rift/",
+                title: "Open Web URL"
+              }, {
+                type: "postback",
+                title: "Call Postback",
+                payload: "Payload for third bubble",
+              }],
+            }
+          ]
+        }
+      }
+    }
+  };  
+
+  callSendAPI(messageData);
+}
+
+function sendVehicleList(recipientId) {
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "generic",
+          elements: [
+            {
+              title: "Suzuki Alto",
+              subtitle: "5 mins away, ~273 LKR",
+              // item_url: "https://www.oculus.com/en-us/rift/",               
+              image_url: "http://loremflickr.com/300/180/vehicle/all",
+              buttons: [ 
+                {
+                  type: "postback",
+                  title: "Book",
+                  payload: "SELECTED_RIDE",
+                }
+              ]
             }, {
-              type: "postback",
-              title: "Call Postback",
-              payload: "Payload for third bubble",
-            }],
-          }]
+              title: "Nissan Leaf",
+              subtitle: "7 mins away, ~320 LKR",
+              // item_url: "https://www.oculus.com/en-us/touch/",               
+              image_url: "http://loremflickr.com/300/180/vehicle/all",
+              buttons: [ 
+                {
+                  type: "postback",
+                  title: "Book",
+                  payload: "SELECTED_RIDE",
+                }
+              ]
+            }, {
+              title: "Suzuki Swift",
+              subtitle: "10 mins away, ~250 LKR",
+              // item_url: "https://www.oculus.com/en-us/rift/",               
+              image_url: "http://loremflickr.com/300/180/vehicle/all",
+              buttons: [ 
+                {
+                  type: "postback",
+                  title: "Book",
+                  payload: "SELECTED_RIDE",
+                }
+              ]
+            }
+          ]
+        }
+      }
+    }
+  };  
+
+  callSendAPI(messageData);
+}
+
+function sendBookedVehicle(recipientId) {
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      attachment: {
+        type: "template",
+        payload: {
+          template_type: "generic",
+          elements: [
+            {
+              title: "Harry Potter",
+              subtitle: "Suzuki Alto, red, 5 mins away",
+              // item_url: "https://www.oculus.com/en-us/rift/",               
+              image_url: "http://loremflickr.com/300/180/man/all",
+              buttons: [ 
+                {
+                  type:"phone_number",
+                  title:"Call the driver",
+                  payload:"+94000000000"
+                },
+                {
+                  type: "postback",
+                  title: "Book",
+                  payload: "CANCEL_RIDE",
+                }
+              ]
+            }
+          ]
         }
       }
     }
@@ -191,6 +330,41 @@ function callSendAPI(messageData) {
   });  
 }
 
+function sendQuickReplyForGetStarted(recipientId) {
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message: {
+      quick_replies:[
+        {
+          content_type: "text",
+          title: "Book a ride",
+          payload: "BOOK_NEW"
+        },
+        {
+          content_type: "text",
+          title: "Schedule a ride",
+          payload: "SCHEDULE_NEW"
+        },
+        {
+          content_type: "text",
+          title: "Help me",
+          payload: "HELP_PAGE"
+        },
+        {
+          content_type: "text",
+          title: "Call us",
+          payload: "CALL_US"
+        }
+      ],
+      text: "Welcome to Drogon! How can we help?"
+    }
+  };  
+
+  callSendAPI(messageData);
+}
+
 function sendQuickReplyForLocation(recipientId) {
   var messageData = {
     recipient: {
@@ -203,13 +377,49 @@ function sendQuickReplyForLocation(recipientId) {
         },
         {
           content_type: "text",
-          title: "Hint",
-          image_url: "https://cdn.glitch.com/57359241-a66a-41e0-bd12-994cba085607%2Fhelp-icon-12.png?1504637592045",
-          payload: "LOCATION_HINT"
+          title: "Book now!",
+          payload: "LOCATIONS_ARE_SET"
         }
       ],
-      text: "Send us your location"
+      text: "Select location"
     }
+  };  
+
+  callSendAPI(messageData);
+}
+
+// SNIPPET
+function sendButtonsList(recipientId) {
+  var messageData = {
+    recipient: {
+      id: recipientId
+    },
+    message:{
+    attachment:{
+      type:"template",
+      payload:{
+        template_type:"button",
+        text:"What do you want to do next?",
+        buttons:[
+          {
+            type:"web_url",
+            url:"https://www.messenger.com",
+            title:"Visit Messenger"
+          },
+          {
+            type:"phone_number",
+            title:"Call Representative",
+            payload:"+94000000000"
+          },
+          {
+            type:"postback",
+            title:"Bookmark Item",
+            payload:"BOOKMARK_ADD"
+          }
+        ]
+      }
+    }
+  }
   };  
 
   callSendAPI(messageData);
