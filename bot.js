@@ -74,6 +74,8 @@ function receivedMessage(event) {
     
     if (msg.indexOf('generic')>=0) { sendGenericMessage(senderID); }
     
+    else if (msg.indexOf('send a taxi')>=0) { sendQuickReplyForLocation(senderID); }
+
     else { sendTextMessage(senderID, messageText); }
     
   } else if (messageAttachments) {
@@ -189,23 +191,24 @@ function callSendAPI(messageData) {
   });  
 }
 
-function sendQuickReplyForLocation() {
+function sendQuickReplyForLocation(recipientId) {
   var messageData = {
     recipient: {
       id: recipientId
     },
     message: {
-      "quick_replies":[
+      quick_replies:[
         {
-          "content_type":"location"
+          content_type: "location"
         },
         {
-          "content_type":"text",
-          "title":"Hint",
-          "image_url":"https://cdn.glitch.com/57359241-a66a-41e0-bd12-994cba085607%2Fhelp-icon-12.png?1504637592045",
-          "payload":"LOCATION_HINT"
+          content_type: "text",
+          title: "Hint",
+          image_url: "https://cdn.glitch.com/57359241-a66a-41e0-bd12-994cba085607%2Fhelp-icon-12.png?1504637592045",
+          payload: "LOCATION_HINT"
         }
-      ]
+      ],
+      text: "Send us your location"
     }
   };  
 
